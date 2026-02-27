@@ -14,7 +14,7 @@ env:
   CONTAINER_PORT: 1337
   CODEDEPLOY_APPLICATION: strapi-bluegreen-codedeploy-app
   CODEDEPLOY_DEPLOYMENT_GROUP: strapi-deployment-group
-  S3_BUCKET: strapi-task-10
+  S3_BUCKET: noor-terraform-state
 
 jobs:
   deploy:
