@@ -9,7 +9,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: strapi-bluegreen
-  TASK_DEFINITION_FAMILY: strapi-bluegreen-task
+  TASK_DEFINITION_FAMILY: bluegreen-app-task
   CONTAINER_NAME: strapi-container
   CONTAINER_PORT: 1337
   CODEDEPLOY_APPLICATION: strapi-bluegreen-codedeploy-app
@@ -32,6 +32,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ID }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Wait for ECR Image Availability
+        run: sleep 30
+
       - name: Get AWS Account ID
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -45,10 +48,10 @@ jobs:
       - name: Fetch Current Task Definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition $TASK_DEFINITION_FAMILY \
-            --query taskDefinition > task-def.json
+          --task-definition $TASK_DEFINITION_FAMILY \
+          --query taskDefinition > task-def.json
 
-      - name: Update Task Definition with New Image
+      - name: Update Task Definition Image
         run: |
           jq --arg IMAGE "$IMAGE_URI" \
           '.containerDefinitions[0].image = $IMAGE |
@@ -64,13 +67,13 @@ jobs:
       - name: Register New Task Definition
         run: |
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file://new-task-def.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
+          --cli-input-json file://new-task-def.json \
+          --query "taskDefinition.taskDefinitionArn" \
+          --output text)
 
           echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Generate AppSpec File
+      - name: Create AppSpec File
         run: |
           cat <<EOF > appspec.json
           {
@@ -103,29 +106,20 @@ jobs:
           --application-name $CODEDEPLOY_APPLICATION \
           --deployment-group-name $CODEDEPLOY_DEPLOYMENT_GROUP \
           --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
-          --revision '{
-            "revisionType": "S3",
-            "s3Location": {
-              "bucket": "'"${S3_BUCKET}"'",
-              "key": "appspec.json",
-              "bundleType": "JSON"
-            }
-          }' \
-          --query deploymentId \
+          --revision revisionType=S3,s3Location={bucket=${S3_BUCKET},key=appspec.json,bundleType=JSON} \
+          --query "deploymentId" \
           --output text)
 
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
-          echo "Deployment ID: $DEPLOYMENT_ID"
 
-      - name: Wait for Deployment to Succeed
+      - name: Wait for Deployment Success
         run: |
           aws deploy wait deployment-successful \
-            --deployment-id ${{ steps.deploy.outputs.deployment_id }}
+          --deployment-id ${{ steps.deploy.outputs.deployment_id }}
 
-      - name: Rollback if failed
+      - name: Rollback if Failed
         if: failure()
         run: |
-          echo "Deployment failed. Initiating rollback..."
           aws deploy stop-deployment \
-            --deployment-id ${{ steps.deploy.outputs.deployment_id }} \
-            --auto-rollback-enabled
+          --deployment-id ${{ steps.deploy.outputs.deployment_id }} \
+          --auto-rollback-enabled
