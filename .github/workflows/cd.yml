@@ -12,14 +12,13 @@ env:
   TASK_DEFINITION_FAMILY: bluegreen-app-task
   CONTAINER_NAME: strapi-container
   CONTAINER_PORT: 1337
-  CODEDEPLOY_APPLICATION: strapi-bluegreen-codedeploy-app
-  CODEDEPLOY_DEPLOYMENT_GROUP: strapi-deployment-group
+  CODEDEPLOY_APPLICATION: strapi-bluegreen-app
+  CODEDEPLOY_DEPLOYMENT_GROUP: strapi-bluegreen-deployment-group
   S3_BUCKET: noor-terraform-state
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
@@ -32,7 +31,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ID }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Wait for ECR Image Availability
+      - name: Wait for ECR Image
         run: sleep 30
 
       - name: Get AWS Account ID
@@ -51,14 +50,14 @@ jobs:
           --task-definition $TASK_DEFINITION_FAMILY \
           --query taskDefinition > task-def.json
 
-      - name: Update Task Definition Image
+      - name: Update Image
         run: |
           jq --arg IMAGE "$IMAGE_URI" \
           '.containerDefinitions[0].image=$IMAGE |
           del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
           task-def.json > new-task-def.json
 
-      - name: Register New Task Definition
+      - name: Register Task Definition
         run: |
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
           --cli-input-json file://new-task-def.json \
@@ -67,7 +66,7 @@ jobs:
 
           echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Create AppSpec File
+      - name: Create AppSpec
         run: |
           cat > appspec.json << EOF
           {
@@ -106,15 +105,13 @@ jobs:
 
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
-      - name: Wait for Deployment
+      - name: Wait Deployment
         run: |
           aws deploy wait deployment-successful \
           --deployment-id ${{ steps.deploy.outputs.deployment_id }}
 
-      - name: Rollback If Failed
+      - name: Rollback if Failed
         if: failure()
         run: |
-          if [ -n "${{ steps.deploy.outputs.deployment_id }}" ]; then
-            aws deploy stop-deployment \
-            --deployment-id ${{ steps.deploy.outputs.deployment_id }}
-          fi
+          aws deploy stop-deployment \
+          --deployment-id ${{ steps.deploy.outputs.deployment_id }}
