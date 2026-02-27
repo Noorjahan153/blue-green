@@ -44,6 +44,6 @@ jobs:
             --platform linux/amd64 \
             -t $ECR_URI:${GITHUB_SHA} \
             -t $ECR_URI:latest \
-            -f strapi/strapi-app/Dockerfile \
-            strapi/strapi-app \
+            -f strapi/Dockerfile \
+            strapi \
             --push
