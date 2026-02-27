@@ -31,6 +31,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ID }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Prevent deployment conflicts
+      - name: Stop Previous Deployment If Running
+        run: |
+          DEPLOYMENT_ID=$(aws deploy list-deployments \
+            --application-name $CODEDEPLOY_APPLICATION \
+            --deployment-group-name $CODEDEPLOY_DEPLOYMENT_GROUP \
+            --include-only-statuses InProgress \
+            --query "deployments[0]" \
+            --output text)
+
+          if [ "$DEPLOYMENT_ID" != "None" ]; then
+            aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID
+          fi
+
       - name: Wait for ECR Image
         run: sleep 30
 
@@ -105,7 +119,7 @@ jobs:
 
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
 
-      - name: Wait Deployment
+      - name: Wait Deployment Success
         run: |
           aws deploy wait deployment-successful \
           --deployment-id ${{ steps.deploy.outputs.deployment_id }}
@@ -113,5 +127,7 @@ jobs:
       - name: Rollback if Failed
         if: failure()
         run: |
-          aws deploy stop-deployment \
-          --deployment-id ${{ steps.deploy.outputs.deployment_id }}
+          if [ -n "${{ steps.deploy.outputs.deployment_id }}" ]; then
+            aws deploy stop-deployment \
+            --deployment-id ${{ steps.deploy.outputs.deployment_id }}
+          fi
