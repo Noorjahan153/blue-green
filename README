@@ -176,17 +176,9 @@ This project improved my knowledge of cloud architecture, monitoring, debugging 
 
 ---
 
-## Future Improvements
-
-- Enable Auto Scaling  
-- Add HTTPS Certificates  
-- Add WAF Security  
-- Add Monitoring Alerts  
-
----
-
 ## Project Status
 ✅ CI/CD Automation  
 ✅ Cloud Infrastructure  
 ✅ Blue-Green Deployment  
+
 
