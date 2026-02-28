@@ -1,0 +1,198 @@
+# Strapi AWS ECS Blue-Green Deployment
+
+## Project Overview
+This project demonstrates end-to-end DevOps automation for deploying a Strapi backend application using:
+
+- GitHub Actions CI/CD  
+- AWS ECS Fargate  
+- AWS CodeDeploy Blue-Green Deployment  
+- Application Load Balancer (ALB)  
+- Amazon RDS PostgreSQL  
+- Terraform Infrastructure as Code  
+- Docker Containerization  
+
+---
+
+## Architecture
+
+User Request  
+↓  
+Application Load Balancer  
+↓  
+ECS Fargate (Blue / Green Tasks)  
+↓  
+Strapi Application Container  
+↓  
+Amazon RDS PostgreSQL Database  
+
+---
+
+## Technologies Used
+
+- Docker  
+- Strapi CMS  
+- AWS ECS Fargate  
+- AWS RDS PostgreSQL  
+- AWS ALB  
+- AWS CodeDeploy  
+- Terraform  
+- GitHub Actions  
+
+---
+
+## Docker Setup
+
+### strapi/Dockerfile
+
+FROM node:20  
+
+WORKDIR /app  
+
+COPY package*.json ./  
+
+RUN npm install  
+
+COPY . .  
+
+RUN npm run build  
+
+EXPOSE 1337  
+
+CMD ["npm", "run", "start"]  
+
+---
+
+## CI/CD Pipeline
+
+### CI Pipeline
+Triggered when code is pushed to main branch.
+
+- Builds Docker image  
+- Pushes image to Amazon ECR  
+
+### CD Pipeline
+Triggered after CI success.
+
+- Updates ECS task definition  
+- Uploads AppSpec file to S3  
+- Triggers CodeDeploy Blue-Green deployment  
+
+---
+
+## Security Groups Configuration
+
+### ALB Security Group
+Allow inbound traffic:
+- HTTP → Port 80 → 0.0.0.0/0  
+- HTTPS → Port 443 → 0.0.0.0/0  
+
+---
+
+### ECS Security Group
+Allow inbound traffic:
+- Port 1337 → From ALB Security Group  
+
+---
+
+### RDS Security Group
+Allow inbound traffic:
+- Port 5432 → From ECS Security Group  
+
+---
+
+## Health Check Configuration
+
+For Strapi:
+
+Health Check Path: /api  
+Matcher: 200-299  
+Timeout: 60 seconds  
+Interval: 30 seconds  
+Grace Period: 300 seconds  
+
+---
+
+## RDS Configuration
+
+Environment Variables in ECS Task Definition:
+
+DATABASE_HOST = RDS Endpoint  
+DATABASE_PORT = 5432  
+DATABASE_NAME = strapi_db  
+DATABASE_USERNAME = postgres  
+DATABASE_PASSWORD = ********  
+
+⚠ Password should not contain:
+- /  
+- @  
+- "  
+- Space  
+
+---
+
+## Deployment Flow
+
+Developer Push Code  
+↓  
+GitHub Actions CI Builds Image  
+↓  
+Push Image to Amazon ECR  
+↓  
+GitHub Actions CD Triggered  
+↓  
+Create New ECS Task Definition  
+↓  
+Upload AppSpec to S3  
+↓  
+CodeDeploy Blue-Green Deployment  
+↓  
+Traffic Switch to New Version  
+
+---
+
+## Monitoring
+
+Check:
+- ECS Logs  
+- ALB Target Group Health  
+- CodeDeploy Deployment Status  
+
+---
+
+## Common Issues
+
+Unhealthy Target Group:
+- Health Check Path = /api  
+- Grace Period = 300 seconds  
+
+302 Redirect Errors:
+- Matcher = 200-299  
+
+Database Errors:
+- Verify RDS endpoint and credentials  
+
+---
+
+## Conclusion
+
+From this project, I learned how to design and implement a full DevOps CI/CD pipeline using AWS cloud services. I gained hands-on experience in containerization using Docker, infrastructure automation using Terraform, and deployment automation using GitHub Actions and AWS CodeDeploy.
+
+I also learned how Blue-Green deployment helps reduce downtime during application updates. I understood the importance of security groups, networking, database connectivity, and health check configurations while deploying cloud applications.
+
+This project improved my knowledge of cloud architecture, monitoring, debugging deployment failures, and production-level DevOps practices.
+
+---
+
+## Future Improvements
+
+- Enable Auto Scaling  
+- Add HTTPS Certificates  
+- Add WAF Security  
+- Add Monitoring Alerts  
+
+---
+
+## Project Status
+✅ CI/CD Automation  
+✅ Cloud Infrastructure  
+✅ Blue-Green Deployment  
